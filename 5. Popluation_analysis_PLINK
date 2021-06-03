@@ -1,0 +1,31 @@
+#!/bin/bash
+#SBATCH -p batch
+#SBATCH -t 5-00:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=32
+#SBATCH --mail-type=ALL
+#SBATCH --output=%x.%A.out
+
+# Type input file here
+VCFheader=Sv_Diversity_446_JointCall_merged.SNP.filtered.passed.bcftools.FMISS10.MAF001
+
+pruneCutoff="50'kb' 1 0.5"
+
+VCFheaderCutoff=50105
+
+## generate BED format (bed, bim) by PLINK v2
+
+/home/haohu/bin/plink/plink-2.00a2.3LM --vcf ${VCFheader}.gz --make-bed --out ${VCFheader} --const-fid --allow-extra-chr --not-chr scaffold_35 scaffold_36 scaffold_43 scaffold_60 scaffold_62 --keep-allele-order --threads 32 --set-missing-var-ids @:# 
+
+## Fix "Invalid chromosome code" error for admixture, by modifying "Chr_0X" to "X" in 1st column
+
+mv ${VCFheader}.fam ${VCFheader}.fixedChr.fam
+
+mv ${VCFheader}.bed ${VCFheader}.fixedChr.bed
+
+# perform prune filter by PLINK with parameters: --indep-pairwise 50 50 0.5
+/home/haohu/bin/plink/plink-2.00a2.3LM --bfile ${VCFheader}.fixedChr --indep-pairwise ${pruneCutoff} --out ${VCFheader}.fixedChr.${VCFheaderCutoff} --allow-extra-chr 
+
+/home/haohu/bin/plink/plink-2.00a2.3LM --bfile ${VCFheader}.fixedChr --extract ${VCFheader}.fixedChr.${VCFheaderCutoff}.prune.in --make-bed --out ${VCFheader}.fixedChr.${VCFheaderCutoff}.pruned --allow-extra-chr 
+
+/home/haohu/bin/plink/plink-2.00a2.3LM --bfile ${VCFheader}.fixedChr.${VCFheaderCutoff}.pruned --pca --allow-extra-chr --out ${VCFheader}.fixedChr.${VCFheaderCutoff}.pruned.pca
